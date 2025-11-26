@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using codebase.BackgroundServices;
 using codebase.Data;
+using codebase.Hubs;
 using codebase.Middleware;
 using codebase.Repositories.Implementations;
 using codebase.Repositories.Interfaces;
@@ -15,6 +16,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddControllers();
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Configure Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -40,6 +44,23 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+    };
+    
+    // Configure JWT for SignalR
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+            
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -73,7 +94,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "BidSphere API",
         Version = "v1",
-        Description = "Smart, event-driven auction management system",
+        Description = "Smart, event-driven auction management system with real-time updates",
         Contact = new OpenApiContact
         {
             Name = "BidSphere Team",
@@ -115,14 +136,15 @@ builder.Services.AddSwaggerGen(c =>
     }
 });
 
-// Add CORS
+// Add CORS for SignalR
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", builder =>
+    options.AddPolicy("AllowAngular", builder =>
     {
-        builder.AllowAnyOrigin()
+        builder.WithOrigins("http://localhost:4200", "https://localhost:4200")
                .AllowAnyMethod()
-               .AllowAnyHeader();
+               .AllowAnyHeader()
+               .AllowCredentials(); // Required for SignalR
     });
 });
 
@@ -170,11 +192,14 @@ app.UseSwaggerUI(c =>
 
 app.UseHttpsRedirection();
 
-app.UseCors("AllowAll");
+app.UseCors("AllowAngular");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Map SignalR Hub
+app.MapHub<DashboardHub>("/hubs/dashboard");
 
 app.Run();

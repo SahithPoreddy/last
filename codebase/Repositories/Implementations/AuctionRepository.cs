@@ -59,6 +59,7 @@ public class AuctionRepository : IAuctionRepository
         return await _context.Auctions
             .Include(a => a.Product)
             .Include(a => a.HighestBid)
+                .ThenInclude(b => b.Bidder)
             .Where(a => a.Status == status)
             .ToListAsync();
     }

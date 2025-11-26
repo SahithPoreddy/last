@@ -5,6 +5,8 @@ using codebase.Models.Entities;
 using codebase.Models.Enums;
 using codebase.Repositories.Interfaces;
 using codebase.Services.Interfaces;
+using Microsoft.AspNetCore.SignalR;
+using codebase.Hubs;
 
 namespace codebase.Services.Implementations;
 
@@ -20,6 +22,7 @@ public class PaymentService : IPaymentService
     private readonly IEmailService _emailService;
     private readonly ILogger<PaymentService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly IHubContext<DashboardHub> _hubContext;
 
     public PaymentService(
         IPaymentAttemptRepository paymentRepository,
@@ -28,7 +31,8 @@ public class PaymentService : IPaymentService
         IUserRepository userRepository,
         IEmailService emailService,
         ILogger<PaymentService> logger,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHubContext<DashboardHub> hubContext)
     {
         _paymentRepository = paymentRepository;
         _auctionRepository = auctionRepository;
@@ -37,6 +41,7 @@ public class PaymentService : IPaymentService
         _emailService = emailService;
         _logger = logger;
         _configuration = configuration;
+        _hubContext = hubContext;
     }
 
     public async Task<PaymentAttemptResponse> ConfirmPaymentAsync(
@@ -109,6 +114,25 @@ public class PaymentService : IPaymentService
 
         _logger.LogInformation("Payment confirmed successfully for Auction: {AuctionId}", auction.AuctionId);
 
+        // Send payment confirmation email
+        var user = await _userRepository.GetByIdAsync(userId);
+        var auctionWithDetails = await _auctionRepository.GetByIdWithDetailsAsync(auction.AuctionId);
+        
+        if (user != null && auctionWithDetails?.Product != null)
+        {
+            await _emailService.SendPaymentConfirmationAsync(
+                user.Email,
+                auctionWithDetails.Product.Name,
+                request.ConfirmedAmount
+            );
+            
+            _logger.LogInformation("Payment confirmation email sent to {Email} for Auction: {AuctionId}", 
+                user.Email, auction.AuctionId);
+        }
+
+        // Notify dashboard via SignalR
+        await NotifyDashboardUpdate();
+
         return MapToPaymentAttemptResponse(currentAttempt);
     }
 
@@ -126,20 +150,23 @@ public class PaymentService : IPaymentService
         var completedCount = await _auctionRepository.GetCompletedCountAsync();
         var failedCount = await _auctionRepository.GetFailedCountAsync();
 
+        // Get completed auctions with their highest bids and bidder information
         var completedAuctions = await _auctionRepository.GetAuctionsByStatusAsync(AuctionStatus.Completed);
         
+        // Calculate top bidders based on completed auctions only
         var topBidders = completedAuctions
-            .Where(a => a.HighestBidId.HasValue)
+            .Where(a => a.HighestBidId.HasValue && a.HighestBid != null && a.HighestBid.Bidder != null)
             .GroupBy(a => a.HighestBid!.BidderId)
             .Select(g => new TopBidder
             {
                 UserId = g.Key,
-                Email = g.First().HighestBid!.Bidder?.Email ?? string.Empty,
+                Email = g.First().HighestBid!.Bidder!.Email,
                 TotalBids = g.Count(),
                 AuctionsWon = g.Count(),
                 TotalAmountSpent = g.Sum(a => a.HighestBid!.Amount)
             })
             .OrderByDescending(b => b.AuctionsWon)
+            .ThenByDescending(b => b.TotalAmountSpent)
             .Take(10)
             .ToList();
 
@@ -243,5 +270,19 @@ public class PaymentService : IPaymentService
             WindowExpiryTime = attempt.WindowExpiryTime,
             ConfirmedAmount = attempt.ConfirmedAmount
         };
+    }
+
+    private async Task NotifyDashboardUpdate()
+    {
+        try
+        {
+            await _hubContext.Clients.Group("DashboardSubscribers")
+                .SendAsync("DashboardUpdate", new { timestamp = DateTime.UtcNow });
+            _logger.LogInformation("Dashboard update notification sent via SignalR");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending dashboard update notification");
+        }
     }
 }

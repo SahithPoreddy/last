@@ -79,7 +79,10 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("auctions");
             entity.HasKey(e => e.AuctionId);
             entity.Property(e => e.ExpiryTime).IsRequired();
-            entity.Property(e => e.Status).IsRequired();
+            entity.Property(e => e.Status)
+                  .IsRequired()
+                  .HasConversion<string>()
+                  .HasMaxLength(20);
             entity.Property(e => e.ExtensionCount).HasDefaultValue(0);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
 
@@ -115,7 +118,10 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("payment_attempts");
             entity.HasKey(e => e.PaymentId);
-            entity.Property(e => e.Status).IsRequired();
+            entity.Property(e => e.Status)
+                  .IsRequired()
+                  .HasConversion<string>()
+                  .HasMaxLength(20);
             entity.Property(e => e.AttemptNumber).IsRequired();
             entity.Property(e => e.AttemptTime).HasDefaultValueSql("NOW()");
             entity.Property(e => e.ConfirmedAmount).HasColumnType("decimal(18,2)");

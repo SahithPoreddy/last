@@ -89,7 +89,7 @@ dotnet run
 createdb -U vectoruser vectordb
 
 # 2. Restore packages
-dotnet restore
+dotent restore
 
 # 3. Migration already exists, just update
 dotnet ef database update
@@ -129,7 +129,7 @@ dotnet run
 }
 ```
 
-## API Endpoints (18 Total)
+## API Endpoints (21 Total)
 
 ### Authentication (4 endpoints)
 - `POST /api/auth/register` - Register new user
@@ -146,7 +146,12 @@ dotnet run
 - `PUT /api/products/{id}` - Update product (Admin)
 - `PUT /api/products/{id}/finalize` - Force finalize auction (Admin)
 - `DELETE /api/products/{id}` - Delete product (Admin)
-- `PUT /api/products/{id}/confirm` - Confirm payment (User)
+- `PUT /api/products/{id}/confirm` - Confirm payment (User) [Deprecated - use Payments API]
+
+### Payments (3 endpoints) ??
+- `POST /api/payments/confirm` - Confirm payment with auction ID and amount (User)
+- `GET /api/payments/auction/{id}` - Get payment status for auction
+- `GET /api/payments/auction/{id}/history` - Get payment history (Admin)
 
 ### Bids (3 endpoints)
 - `POST /api/bids` - Place bid (User)
