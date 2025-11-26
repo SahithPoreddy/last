@@ -1,0 +1,6 @@
+@codebase_HostAddress = http://localhost:5097
+
+GET {{codebase_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
