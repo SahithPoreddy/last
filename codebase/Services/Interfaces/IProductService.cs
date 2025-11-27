@@ -1,4 +1,5 @@
 using codebase.Models.DTOs;
+using codebase.Models.Common;
 
 namespace codebase.Services.Interfaces;
 
@@ -8,8 +9,8 @@ namespace codebase.Services.Interfaces;
 public interface IProductService
 {
     Task<ProductResponse> CreateProductAsync(int ownerId, CreateProductRequest request);
-    Task<List<ProductResponse>> GetAllProductsAsync();
-    Task<List<ProductResponse>> GetActiveAuctionsAsync();
+    Task<PagedResult<ProductResponse>> GetAllProductsAsync(PaginationParams paginationParams);
+    Task<PagedResult<ProductResponse>> GetActiveAuctionsAsync(PaginationParams paginationParams);
     Task<AuctionDetailResponse> GetAuctionDetailsAsync(int productId);
     Task<ProductResponse> UpdateProductAsync(int productId, UpdateProductRequest request);
     Task DeleteProductAsync(int productId);

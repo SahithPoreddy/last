@@ -4,8 +4,11 @@ using codebase.Common.Exceptions;
 using codebase.Models.DTOs;
 using codebase.Models.Entities;
 using codebase.Models.Enums;
+using codebase.Models.Common;
 using codebase.Repositories.Interfaces;
 using codebase.Services.Interfaces;
+using Microsoft.AspNetCore.SignalR;
+using codebase.Hubs;
 
 namespace codebase.Services.Implementations;
 
@@ -18,17 +21,20 @@ public class ProductService : IProductService
     private readonly IAuctionRepository _auctionRepository;
     private readonly IBidRepository _bidRepository;
     private readonly ILogger<ProductService> _logger;
+    private readonly IHubContext<DashboardHub> _hubContext;
 
     public ProductService(
         IProductRepository productRepository,
         IAuctionRepository auctionRepository,
         IBidRepository bidRepository,
-        ILogger<ProductService> logger)
+        ILogger<ProductService> logger,
+        IHubContext<DashboardHub> hubContext)
     {
         _productRepository = productRepository;
         _auctionRepository = auctionRepository;
         _bidRepository = bidRepository;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     public async Task<ProductResponse> CreateProductAsync(int ownerId, CreateProductRequest request)
@@ -62,19 +68,50 @@ public class ProductService : IProductService
         _logger.LogInformation("Product created successfully: {ProductId} with Auction: {AuctionId}", 
             product.ProductId, auction.AuctionId);
 
+        // Notify dashboard via SignalR
+        await NotifyDashboardUpdate();
+
         return MapToProductResponse(product, auction);
     }
 
-    public async Task<List<ProductResponse>> GetAllProductsAsync()
+    public async Task<PagedResult<ProductResponse>> GetAllProductsAsync(PaginationParams paginationParams)
     {
         var products = await _productRepository.GetAllWithAuctionsAsync();
-        return products.Select(p => MapToProductResponse(p, p.Auction)).ToList();
+        
+        var totalCount = products.Count;
+        var items = products
+            .Skip((paginationParams.PageNumber - 1) * paginationParams.PageSize)
+            .Take(paginationParams.PageSize)
+            .Select(p => MapToProductResponse(p, p.Auction))
+            .ToList();
+
+        return new PagedResult<ProductResponse>
+        {
+            Items = items,
+            PageNumber = paginationParams.PageNumber,
+            PageSize = paginationParams.PageSize,
+            TotalCount = totalCount
+        };
     }
 
-    public async Task<List<ProductResponse>> GetActiveAuctionsAsync()
+    public async Task<PagedResult<ProductResponse>> GetActiveAuctionsAsync(PaginationParams paginationParams)
     {
         var auctions = await _auctionRepository.GetActiveAuctionsAsync();
-        return auctions.Select(a => MapToProductResponse(a.Product!, a)).ToList();
+        
+        var totalCount = auctions.Count;
+        var items = auctions
+            .Skip((paginationParams.PageNumber - 1) * paginationParams.PageSize)
+            .Take(paginationParams.PageSize)
+            .Select(a => MapToProductResponse(a.Product!, a))
+            .ToList();
+
+        return new PagedResult<ProductResponse>
+        {
+            Items = items,
+            PageNumber = paginationParams.PageNumber,
+            PageSize = paginationParams.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<AuctionDetailResponse> GetAuctionDetailsAsync(int productId)
@@ -152,6 +189,9 @@ public class ProductService : IProductService
 
         _logger.LogInformation("Product updated successfully: {ProductId}", productId);
 
+        // Notify dashboard via SignalR
+        await NotifyDashboardUpdate();
+
         return MapToProductResponse(product, product.Auction);
     }
 
@@ -171,6 +211,9 @@ public class ProductService : IProductService
         await _productRepository.DeleteAsync(product);
 
         _logger.LogInformation("Product deleted successfully: {ProductId}", productId);
+
+        // Notify dashboard via SignalR
+        await NotifyDashboardUpdate();
     }
 
     public async Task<AuctionDetailResponse> FinalizeAuctionAsync(int productId)
@@ -202,6 +245,9 @@ public class ProductService : IProductService
 
         _logger.LogInformation("Auction finalized: {AuctionId} with status: {Status}", 
             auction.AuctionId, auction.Status);
+
+        // Notify dashboard via SignalR
+        await NotifyDashboardUpdate();
 
         return await GetAuctionDetailsAsync(productId);
     }
@@ -283,6 +329,12 @@ public class ProductService : IProductService
         _logger.LogInformation("Excel upload completed. Success: {Success}, Failed: {Failed}", 
             result.SuccessCount, result.FailureCount);
 
+        // Notify dashboard via SignalR after bulk upload
+        if (result.SuccessCount > 0)
+        {
+            await NotifyDashboardUpdate();
+        }
+
         return result;
     }
 
@@ -313,5 +365,19 @@ public class ProductService : IProductService
                 CreatedAt = auction.CreatedAt
             }
         };
+    }
+
+    private async Task NotifyDashboardUpdate()
+    {
+        try
+        {
+            await _hubContext.Clients.Group("DashboardSubscribers")
+                .SendAsync("DashboardUpdate", new { timestamp = DateTime.UtcNow });
+            _logger.LogInformation("Dashboard update notification sent via SignalR");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending dashboard update notification");
+        }
     }
 }

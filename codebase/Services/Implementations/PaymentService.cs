@@ -3,6 +3,7 @@ using codebase.Common.Exceptions;
 using codebase.Models.DTOs;
 using codebase.Models.Entities;
 using codebase.Models.Enums;
+using codebase.Models.Common;
 using codebase.Repositories.Interfaces;
 using codebase.Services.Interfaces;
 using Microsoft.AspNetCore.SignalR;
@@ -136,11 +137,24 @@ public class PaymentService : IPaymentService
         return MapToPaymentAttemptResponse(currentAttempt);
     }
 
-    public async Task<List<PaymentAttemptResponse>> GetTransactionsAsync()
+    public async Task<PagedResult<PaymentAttemptResponse>> GetTransactionsAsync(PaginationParams paginationParams)
     {
         var attempts = await _paymentRepository.GetAllAsync();
+        
+        var totalCount = attempts.Count;
+        var items = attempts
+            .Skip((paginationParams.PageNumber - 1) * paginationParams.PageSize)
+            .Take(paginationParams.PageSize)
+            .Select(MapToPaymentAttemptResponse)
+            .ToList();
 
-        return attempts.Select(MapToPaymentAttemptResponse).ToList();
+        return new PagedResult<PaymentAttemptResponse>
+        {
+            Items = items,
+            PageNumber = paginationParams.PageNumber,
+            PageSize = paginationParams.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<DashboardResponse> GetDashboardMetricsAsync()

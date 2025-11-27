@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using codebase.Models.DTOs;
+using codebase.Models.Common;
 using codebase.Services.Interfaces;
 
 namespace codebase.Controllers;
@@ -49,15 +50,23 @@ public class BidsController : ControllerBase
     }
 
     /// <summary>
-    /// Get all bids with optional filters (Admin/User)
+    /// Get all bids with pagination (Admin/User)
     /// </summary>
     [Authorize]
     [HttpGet]
-    [ProducesResponseType(typeof(List<BidResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResult<BidResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<List<BidResponse>>> GetAllBids()
+    public async Task<ActionResult<PagedResult<BidResponse>>> GetAllBids(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var bids = await _bidService.GetAllBidsAsync();
-        return Ok(bids);
+        var paginationParams = new PaginationParams
+        {
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+        
+        var result = await _bidService.GetAllBidsAsync(paginationParams);
+        return Ok(result);
     }
 }

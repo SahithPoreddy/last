@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using codebase.Models.DTOs;
+using codebase.Models.Common;
 using codebase.Services.Interfaces;
 
 namespace codebase.Controllers;
@@ -66,25 +67,41 @@ public class ProductsController : ControllerBase
     }
 
     /// <summary>
-    /// Get all products with optional filters
+    /// Get all products with pagination
     /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(List<ProductResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<ProductResponse>>> GetAllProducts()
+    [ProducesResponseType(typeof(PagedResult<ProductResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<ProductResponse>>> GetAllProducts(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var products = await _productService.GetAllProductsAsync();
-        return Ok(products);
+        var paginationParams = new PaginationParams
+        {
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+        
+        var result = await _productService.GetAllProductsAsync(paginationParams);
+        return Ok(result);
     }
 
     /// <summary>
-    /// Get active auctions
+    /// Get all active auctions with pagination
     /// </summary>
     [HttpGet("active")]
-    [ProducesResponseType(typeof(List<ProductResponse>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<ProductResponse>>> GetActiveAuctions()
+    [ProducesResponseType(typeof(PagedResult<ProductResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<ProductResponse>>> GetActiveAuctions(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var auctions = await _productService.GetActiveAuctionsAsync();
-        return Ok(auctions);
+        var paginationParams = new PaginationParams
+        {
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+        
+        var result = await _productService.GetActiveAuctionsAsync(paginationParams);
+        return Ok(result);
     }
 
     /// <summary>

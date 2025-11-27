@@ -1,4 +1,5 @@
 using codebase.Models.DTOs;
+using codebase.Models.Common;
 
 namespace codebase.Services.Interfaces;
 
@@ -8,6 +9,6 @@ namespace codebase.Services.Interfaces;
 public interface IPaymentService
 {
     Task<PaymentAttemptResponse> ConfirmPaymentAsync(int userId, int productId, ConfirmPaymentRequest request, bool testInstantFail = false);
-    Task<List<PaymentAttemptResponse>> GetTransactionsAsync();
+    Task<PagedResult<PaymentAttemptResponse>> GetTransactionsAsync(PaginationParams paginationParams);
     Task<DashboardResponse> GetDashboardMetricsAsync();
 }

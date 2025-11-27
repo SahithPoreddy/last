@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using codebase.Models.DTOs;
+using codebase.Models.Common;
 using codebase.Services.Interfaces;
 
 namespace codebase.Controllers;
@@ -22,15 +23,23 @@ public class TransactionsController : ControllerBase
     }
 
     /// <summary>
-    /// Get all payment transactions (Admin/User)
+    /// Get all payment transactions with pagination (Admin/User)
     /// </summary>
     [Authorize]
     [HttpGet]
-    [ProducesResponseType(typeof(List<PaymentAttemptResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResult<PaymentAttemptResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<List<PaymentAttemptResponse>>> GetTransactions()
+    public async Task<ActionResult<PagedResult<PaymentAttemptResponse>>> GetTransactions(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var transactions = await _paymentService.GetTransactionsAsync();
-        return Ok(transactions);
+        var paginationParams = new PaginationParams
+        {
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+
+        var result = await _paymentService.GetTransactionsAsync(paginationParams);
+        return Ok(result);
     }
 }

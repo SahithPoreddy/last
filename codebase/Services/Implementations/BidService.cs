@@ -3,6 +3,7 @@ using codebase.Common.Exceptions;
 using codebase.Models.DTOs;
 using codebase.Models.Entities;
 using codebase.Models.Enums;
+using codebase.Models.Common;
 using codebase.Repositories.Interfaces;
 using codebase.Services.Interfaces;
 
@@ -125,18 +126,30 @@ public class BidService : IBidService
         }).ToList();
     }
 
-    public async Task<List<BidResponse>> GetAllBidsAsync()
+    public async Task<PagedResult<BidResponse>> GetAllBidsAsync(PaginationParams paginationParams)
     {
         var bids = await _bidRepository.GetAllBidsAsync();
+        
+        var totalCount = bids.Count;
+        var items = bids
+            .Skip((paginationParams.PageNumber - 1) * paginationParams.PageSize)
+            .Take(paginationParams.PageSize)
+            .Select(b => new BidResponse
+            {
+                BidId = b.BidId,
+                AuctionId = b.AuctionId,
+                BidderId = b.BidderId,
+                BidderEmail = b.Bidder?.Email ?? string.Empty,
+                Amount = b.Amount,
+                Timestamp = b.Timestamp
+            }).ToList();
 
-        return bids.Select(b => new BidResponse
+        return new PagedResult<BidResponse>
         {
-            BidId = b.BidId,
-            AuctionId = b.AuctionId,
-            BidderId = b.BidderId,
-            BidderEmail = b.Bidder?.Email ?? string.Empty,
-            Amount = b.Amount,
-            Timestamp = b.Timestamp
-        }).ToList();
+            Items = items,
+            PageNumber = paginationParams.PageNumber,
+            PageSize = paginationParams.PageSize,
+            TotalCount = totalCount
+        };
     }
 }

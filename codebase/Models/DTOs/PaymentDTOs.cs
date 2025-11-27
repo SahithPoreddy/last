@@ -4,19 +4,12 @@ namespace codebase.Models.DTOs;
 
 public class ConfirmPaymentRequest
 {
-    [Required]
-    [Range(0.01, double.MaxValue, ErrorMessage = "Confirmed amount must be greater than 0")]
     public decimal ConfirmedAmount { get; set; }
 }
 
 public class ConfirmPaymentByAuctionRequest
 {
-    [Required]
-    [Range(1, int.MaxValue, ErrorMessage = "Auction ID must be valid")]
     public int AuctionId { get; set; }
-
-    [Required]
-    [Range(0.01, double.MaxValue, ErrorMessage = "Payment amount must be greater than 0")]
     public decimal Amount { get; set; }
 }
 

@@ -1,4 +1,5 @@
 using codebase.Models.DTOs;
+using codebase.Models.Common;
 
 namespace codebase.Services.Interfaces;
 
@@ -9,5 +10,5 @@ public interface IBidService
 {
     Task<BidResponse> PlaceBidAsync(int bidderId, PlaceBidRequest request);
     Task<List<BidResponse>> GetBidsByAuctionAsync(int auctionId);
-    Task<List<BidResponse>> GetAllBidsAsync();
+    Task<PagedResult<BidResponse>> GetAllBidsAsync(PaginationParams paginationParams);
 }
